@@ -3,6 +3,7 @@ package com.gmail.bishoybasily.stomp.lib
 import com.gmail.bishoybasily.stomp.lib.constants.Codes
 import com.gmail.bishoybasily.stomp.lib.constants.Commands
 import com.gmail.bishoybasily.stomp.lib.constants.Headers
+import com.gmail.bishoybasily.stomp.lib.constants.MessageDTO
 import io.reactivex.Observable
 import io.reactivex.ObservableEmitter
 import okhttp3.*
@@ -81,7 +82,7 @@ class StompClient(private val okHttpClient: OkHttpClient,
                 }
     }
 
-    fun send(topic: String, msg: String): Observable<Boolean> {
+    fun send(topic: String, msg: MessageDTO): Observable<Boolean> {
         return Observable
                 .create<Boolean> {
                     val headers = HashMap<String, String>()
@@ -121,7 +122,7 @@ class StompClient(private val okHttpClient: OkHttpClient,
             logger.log(Level.INFO, "Already disconnected")
         }
     }
-
+/*
     private fun parseMessage(data: String?): Message {
 
         if (data.isNullOrBlank())
@@ -145,6 +146,8 @@ class StompClient(private val okHttpClient: OkHttpClient,
 
         return Message(command, headers, payload!!)
     }
+
+ */
 
     private fun compileMessage(message: Message): String {
         val builder = StringBuilder()
@@ -178,7 +181,7 @@ class StompClient(private val okHttpClient: OkHttpClient,
         logger.log(Level.INFO, "onClosed reason: $reason, code: $code")
         reconnect()
     }
-
+/*
     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
         handleMessage(parseMessage(bytes.toString()))
     }
@@ -186,7 +189,7 @@ class StompClient(private val okHttpClient: OkHttpClient,
     override fun onMessage(webSocket: WebSocket, text: String) {
         handleMessage(parseMessage(text))
     }
-
+*/
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
         webSocket.close(code, reason)
         logger.log(Level.INFO, "onClosing reason: $reason, code: $code")
@@ -208,7 +211,7 @@ class StompClient(private val okHttpClient: OkHttpClient,
                 if (dest != null) {
                     val emitter = emitters[dest]
                     if (emitter != null) {
-                        emitter.onNext(message.payload!!)
+                        emitter.onNext(message.payload.toString()!!)
                     }
                 }
             }

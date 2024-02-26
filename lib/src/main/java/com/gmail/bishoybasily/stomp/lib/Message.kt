@@ -1,5 +1,6 @@
 package com.gmail.bishoybasily.stomp.lib
 
+import com.gmail.bishoybasily.stomp.lib.constants.MessageDTO
 import java.util.*
 import java.util.regex.Pattern
 
@@ -9,7 +10,7 @@ import java.util.regex.Pattern
 class Message {
 
     var command: String? = null
-    var payload: String? = null
+    var payload: MessageDTO? = null
     var headers: Map<String, String> = HashMap()
 
     constructor(command: String, headers: Map<String, String>) {
@@ -17,13 +18,13 @@ class Message {
         this.headers = headers
     }
 
-    constructor(command: String, headers: Map<String, String>, payload: String) {
+    constructor(command: String, headers: Map<String, String>, payload: MessageDTO) {
         this.command = command
         this.headers = headers
         this.payload = payload
     }
 
-    constructor(command: String, payload: String) {
+    constructor(command: String, payload: MessageDTO) {
         this.command = command
         this.payload = payload
     }

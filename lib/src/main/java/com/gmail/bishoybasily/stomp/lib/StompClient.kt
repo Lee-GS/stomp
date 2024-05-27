@@ -3,7 +3,6 @@ package com.gmail.bishoybasily.stomp.lib
 import com.gmail.bishoybasily.stomp.lib.constants.Codes
 import com.gmail.bishoybasily.stomp.lib.constants.Commands
 import com.gmail.bishoybasily.stomp.lib.constants.Headers
-import com.gmail.bishoybasily.stomp.lib.constants.MessageDTO
 import io.reactivex.Observable
 import io.reactivex.ObservableEmitter
 import okhttp3.*
@@ -14,9 +13,11 @@ import java.util.concurrent.ConcurrentHashMap
 import java.util.logging.Level
 import java.util.logging.Logger
 
-class StompClient(private val okHttpClient: OkHttpClient,
-                  private val reconnectAfter: Long) :
-        WebSocketListener() {
+class StompClient(
+    private val okHttpClient: OkHttpClient,
+    private val reconnectAfter: Long,
+    private val token: String
+) : WebSocketListener() {
 
     private val logger = Logger.getLogger(javaClass.name)
 
@@ -37,67 +38,68 @@ class StompClient(private val okHttpClient: OkHttpClient,
 
     fun connect(): Observable<Event> {
         return Observable
-                .create<Event> {
-                    emitter = it
-                    shouldBeConnected = true
-                    open()
-                }
-                .doOnDispose {
-                    close()
-                    shouldBeConnected = false
-                }
+            .create<Event> {
+                emitter = it
+                shouldBeConnected = true
+                open()
+            }
+            .doOnDispose {
+                close()
+                shouldBeConnected = false
+            }
     }
 
     fun join(topic: String): Observable<String> {
         return Observable
-                .create<String> {
+            .create<String> {
 
-                    val topicId = UUID.randomUUID().toString()
+                val topicId = UUID.randomUUID().toString()
 
-                    val headers = HashMap<String, String>()
-                    headers[Headers.ID] = topicId
-                    headers[Headers.DESTINATION] = topic
-                    headers[Headers.ACK] = DEFAULT_ACK
-                    webSocket.send(compileMessage(Message(Commands.SUBSCRIBE, headers)))
+                val headers = HashMap<String, String>()
+                headers[Headers.ID] = topicId
+                headers[Headers.DESTINATION] = topic
+                headers[Headers.ACK] = DEFAULT_ACK
+                webSocket.send(compileMessage(Message(Commands.SUBSCRIBE, headers)))
 
-                    emitters[topic] = it
-                    topics[topic] = topicId
+                emitters[topic] = it
+                topics[topic] = topicId
 
-                    logger.log(Level.INFO, "Subscribed to: $topic id: $topicId")
+                logger.log(Level.INFO, "Subscribed to: $topic id: $topicId")
 
-                }
-                .doOnDispose {
+            }
+            .doOnDispose {
 
-                    val topicId = topics[topic]
+                val topicId = topics[topic]
 
-                    val headers = HashMap<String, String>()
-                    headers[Headers.ID] = topicId!!
-                    webSocket.send(compileMessage(Message(Commands.UNSUBSCRIBE, headers)))
+                val headers = HashMap<String, String>()
+                headers[Headers.ID] = topicId!!
+                webSocket.send(compileMessage(Message(Commands.UNSUBSCRIBE, headers)))
 
-                    emitters.remove(topic)
-                    topics.remove(topicId)
+                emitters.remove(topic)
+                topics.remove(topicId)
 
-                    logger.log(Level.INFO, "Unsubscribed from: $topic id: $topicId")
+                logger.log(Level.INFO, "Unsubscribed from: $topic id: $topicId")
 
-                }
+            }
     }
 
-    fun send(topic: String, msg: MessageDTO): Observable<Boolean> {
+    fun send(topic: String, msg: String): Observable<Boolean> {
         return Observable
-                .create<Boolean> {
-                    val headers = HashMap<String, String>()
-                    headers[Headers.DESTINATION] = topic
-                    it.onNext(webSocket.send(compileMessage(Message(Commands.SEND, headers, msg))))
-                    it.onComplete()
-                }
+            .create<Boolean> {
+                val headers = HashMap<String, String>()
+                headers[Headers.DESTINATION] = topic
+                it.onNext(webSocket.send(compileMessage(Message(Commands.SEND, headers, msg))))
+                it.onComplete()
+            }
     }
 
     private fun open() {
         if (!connected) {
             logger.log(Level.INFO, "Connecting...")
             val request = Request.Builder()
-                    .url(url)
-                    .build()
+                .url(url)
+                .addHeader("Authorization", "Bearer $token")
+                .build()
             webSocket = okHttpClient.newWebSocket(request, this)
             connected = true
         } else {
@@ -122,7 +124,7 @@ class StompClient(private val okHttpClient: OkHttpClient,
             logger.log(Level.INFO, "Already disconnected")
         }
     }
-/*
+
     private fun parseMessage(data: String?): Message {
 
         if (data.isNullOrBlank())
@@ -146,8 +148,6 @@ class StompClient(private val okHttpClient: OkHttpClient,
 
         return Message(command, headers, payload!!)
     }
-
- */
 
     private fun compileMessage(message: Message): String {
         val builder = StringBuilder()
@@ -181,7 +181,7 @@ class StompClient(private val okHttpClient: OkHttpClient,
         logger.log(Level.INFO, "onClosed reason: $reason, code: $code")
         reconnect()
     }
-/*
+
     override fun onMessage(webSocket: WebSocket, bytes: ByteString) {
         handleMessage(parseMessage(bytes.toString()))
     }
@@ -189,7 +189,7 @@ class StompClient(private val okHttpClient: OkHttpClient,
     override fun onMessage(webSocket: WebSocket, text: String) {
         handleMessage(parseMessage(text))
     }
-*/
+
     override fun onClosing(webSocket: WebSocket, code: Int, reason: String) {
         webSocket.close(code, reason)
         logger.log(Level.INFO, "onClosing reason: $reason, code: $code")
@@ -206,17 +206,21 @@ class StompClient(private val okHttpClient: OkHttpClient,
             Commands.CONNECTED -> {
                 emitter.onNext(Event(Event.Type.OPENED))
             }
+
             Commands.MESSAGE -> {
                 val dest = message.headers[Headers.DESTINATION]
                 if (dest != null) {
                     val emitter = emitters[dest]
                     if (emitter != null) {
-                        emitter.onNext(message.payload.toString()!!)
+                        emitter.onNext(message.payload!!)
                     }
                 }
             }
         }
-        logger.log(Level.INFO, "onMessage payload: ${message.payload}, heaaders:${message.headers}, command: ${message.command}")
+        logger.log(
+            Level.INFO,
+            "onMessage payload: ${message.payload}, heaaders:${message.headers}, command: ${message.command}"
+        )
     }
 
 

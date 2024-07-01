@@ -15,8 +15,7 @@ import java.util.logging.Logger
 
 class StompClient(
     private val okHttpClient: OkHttpClient,
-    private val reconnectAfter: Long,
-    private val token: String
+    private val reconnectAfter: Long
 ) : WebSocketListener() {
 
     private val logger = Logger.getLogger(javaClass.name)
@@ -98,7 +97,6 @@ class StompClient(
             logger.log(Level.INFO, "Connecting...")
             val request = Request.Builder()
                 .url(url)
-                .addHeader("Authorization", "Bearer $token")
                 .build()
             webSocket = okHttpClient.newWebSocket(request, this)
             connected = true
